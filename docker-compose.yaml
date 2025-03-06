@@ -1,0 +1,44 @@
+services:
+  gitea:
+    image: docker.gitea.com/gitea:1.23.4
+    container_name: gitea
+    environment:
+      - GITEA__webhook__ALLOWED_HOST_LIST=*
+      - GITEA__webhook__SKIP_TLS_VERIFY=true
+    restart: unless-stopped
+    volumes:
+      - ./data/gitea:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    orts:
+      - "3000:3000"
+      - "222:22"
+  woodpecker-server:
+    image: woodpeckerci/woodpecker-server:v2.8.3
+    container_name: woodpecker-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/woodpecker-server:/var/lib/woodpecker
+    environment:
+      - WOODPECKER_OPEN=true
+      - WOODPECKER_AGENT_SECRET=<GITEA_AGENT_SECRET>
+      - WOODPECKER_HOST=http://<192.168.100.209>:8000
+      - WOODPECKER_GITEA=true
+      - WOODPECKER_GITEA_URL=http://<192.168.100.209>:3000
+      - WOODPECKER_GITEA_CLIENT=<GITEA_CLIENT_ID>
+      - WOODPECKER_GITEA_SECRET=<GITEA_CLIENT_SECRET>
+      - WOODPECKER_GITEA_SKIP_VERIFY=true
+  woodpecker-agent:
+    image: woodpeckerci/woodpecker-agent:v2.8.3
+    container_name: woodpecker-agent
+    command: agent
+    restart: unless-stopped
+    depends_on:
+      - woodpecker-server
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WOODPECKER_SERVER=woodpecker-server:9000
+      - WOODPECKER_AGENT_SECRET=<GITEA_AGENT_SECRET>
